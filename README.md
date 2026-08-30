@@ -105,8 +105,6 @@ export AWS_REGION=us-east-1
 aws configure set region us-east-1
 ```
 
----
-
 ### 2. Create the EKS IAM role
 
 Amazon EKS requires a service role to manage resources on your behalf.
@@ -116,8 +114,6 @@ In AWS IAM, create a role named `eks-cluster-role` and attach the managed policy
 - `AmazonEKSClusterPolicy`
 
 This IAM role allows the EKS service to create and manage the Kubernetes control plane and required networking resources.
-
----
 
 ### 3. Create the VPC for worker nodes
 
@@ -145,8 +141,6 @@ This is the infrastructure used for the cluster worker nodes.
 
 ![EKS Worker Node VPC Stack](images/eks-worker-node-vpc-stack.png)
 
----
-
 ### 4. Create the EKS cluster (control plane)
 
 From the AWS EKS Console, create a new cluster using the created VPC.
@@ -168,8 +162,6 @@ The AWS console screenshot below shows the created EKS cluster:
 
 ![EKS Cluster](images/eks-cluster-test.png)
 
----
-
 ### 5. Connect kubectl to the EKS cluster
 
 The next step is to download the cluster kubeconfig so that kubectl can interact with the EKS cluster.
@@ -188,8 +180,6 @@ kubectl get nodes
 
 This gives a local control point for Kubernetes operations and confirms the cluster is reachable from the workstation.
 
----
-
 ### 6. Create the EC2 IAM role for the node group
 
 Worker nodes must have permissions to communicate with AWS services and run the Kubernetes runtime components such as kubelet and kube-proxy.
@@ -206,8 +196,6 @@ These permissions allow worker nodes to:
 - manage networking with the Amazon VPC CNI plugin
 - access container image registries
 - run as Kubernetes worker nodes
-
----
 
 ### 7. Create the managed node group and attach it to the cluster
 
@@ -239,8 +227,6 @@ kubectl get nodes -o wide
 The AWS console screenshot below shows the created node group:
 
 ![EKS Node Group](images/eks-node-group.png)
-
----
 
 ### 8. Configure cluster autoscaling
 
@@ -388,8 +374,6 @@ kubectl logs <autoscaler-pod-name> -n kube-system
 
 The autoscaler will now monitor the cluster and scale the node group up or down based on pending pods and resource pressure.
 
----
-
 ### 9. Deploy a sample application
 
 To validate the cluster, deploy a simple NGINX workload with a Kubernetes `Deployment` and a `LoadBalancer` service.
@@ -455,8 +439,6 @@ kubectl get nodes
 
 The service type `LoadBalancer` triggers AWS to create an ELB for external access to the app.
 
----
-
 ### 10. Scale the workload and validate autoscaling
 
 To validate the autoscaler, scale the NGINX deployment to a much higher number of replicas.
@@ -482,8 +464,6 @@ This demonstrates both sides of cluster autoscaling:
 
 - scale out when more pods need scheduling
 - scale in when the workload shrinks and nodes are underutilized
-
----
 
 ## Key lessons learned
 
