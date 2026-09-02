@@ -23,7 +23,7 @@ Detailed Steps to create an EKS cluster. Step-by-Step Process
 
 ### create EKS IAM Role
 
-Create new role (eks-cluster-role) and assign it to an EKS cluster managed by AWS to allow AWS access to create and manage resources on your behalf.
+Create new role "eks-cluster-role" with "AmazonEKSClusterPolicy" and assign it to an EKS cluster managed by AWS to allow AWS access to create and manage resources on your behalf.
 
 ### create VPC for Worker Nodes
 
@@ -32,11 +32,11 @@ Create new role (eks-cluster-role) and assign it to an EKS cluster managed by AW
 - Best Practice = Configure public and private subnet
 - Through IAM Role you give K8s permission to change VPC configurations
 
-Use cloudformation template "eks-worker-node-vpc-stack" to create cluster VPC "https://docs.aws.amazon.com/eks/latest/userguide/creating-a-vpc.html".
+Use cloudformation template "eks-worker-node-vpc-stack" to create cluster VPC with Public and private subnets. docs to create VPC "https://docs.aws.amazon.com/eks/latest/userguide/creating-a-vpc.html". Cloudformation template "https://s3.us-west-2.amazonaws.com/amazon-eks/cloudformation/2020-10-29/amazon-eks-vpc-private-subnets.yaml"
 
 ### create EKS cluster (Control Plane Nodes)
 
-create the custom eks cluster (eks-cluster-test)
+create the custom eks cluster "eks-cluster-test", choose "eks-worker-node-vpc-stack" as cluster VPC
 
 ### connect kubectl with EKS cluster
 
@@ -57,11 +57,13 @@ kubectl cluster-info
 - That's why Kubelet on Worker Node needs permission
 - Create Role for Node Group
 
-create a new EC2 role (eks-node-group-role) with 3 permission policies (AmazonEKSWorkerNodePolicy, AmazonEC2containerRegistryReadOnly, AmazonEKS_CNI_Policy)
+create a new EC2 role "eks-node-group-role" with 3 permission policies (AmazonEKSWorkerNodePolicy, AmazonEC2containerRegistryReadOnly, AmazonEKS_CNI_Policy)
 
 ### create Node Group and attach to EKS cluster
 
-Create a new Node Group (eks-node-group) with the role (eks-node-group-role)
+Create a new Node Group "eks-node-group" with the role "eks-node-group-role". (min=2, desired=2, max=2)
+
+This will create 2 EC2 instances & an ASG
 
 With NodeGroup all the necessary worker processes (container runtime, kubelet, kube-proxy) are installed 
 
@@ -102,7 +104,7 @@ Created with cluster node group
 
 #### Create custom policy 
 
-Create custom policy (ClusterAutoScalerPolicy) with EC2 & ASG permissions & attach to a new IAM Role
+Create custom policy "ClusterAutoScalerPolicy" with EC2 & ASG permissions & attach to a new IAM Role
 
 ```json
 {
@@ -136,7 +138,7 @@ STS stands for "AWS Security Token Service" which issue temporary credentials fo
 
 #### Create IAM Role & attach policy
 
-Create a Web Identity Role (EKSServiceAccountRole) with the above OIDC & audience "STS" & attach "ClusterAutoScalerPolicy"
+Create a Web Identity Role "EKSServiceAccountRole" with the above OIDC & audience "STS" & attach "ClusterAutoScalerPolicy"
 
 #### Deploy K8s autoscaler
 
@@ -145,7 +147,7 @@ Before deploying the autoscaler, ensure that the ASG are tagged for the cluster 
 - k8s.io/cluster-autoscaler/enabled
 - k8s.io/cluster-autoscaler/<cluster-name>
 
-Deploy the cluster autoscaler with the following
+Deploy the cluster autoscaler with the following "https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml"
 
 ```yaml
 ---
@@ -446,13 +448,13 @@ Deploy to Fargate:
 
 Similar to Node Group Worker Role, Pods/Kubelet provisioned by Fargate needs permissions to connect to AWS, pull images, provision resources, ...etc
 
-Create a new IAM role (eks-fargate-role) for service EKS (Fargate pod) with AmazonEKSFargatePodExecutionRolePolicy 
+Create a new IAM role "eks-fargate-role" for service EKS "Fargate pod" with "AmazonEKSFargatePodExecutionRolePolicy"
 
-2) Create Fargate Profile (Pod Selection Rule)
+1) Create Fargate Profile (Pod Selection Rule)
 
-Specify which should use Fargate when y are launched
+Specify which pods should use Fargate when they are launched
 
-Create new Fargate Profile (dev-profile), the selection rules can either be defined based on k8s components namespace (namespace: dev) or labels (profile: fargate or environment: dev)
+Create new Fargate Profile "dev-profile", the selection rules can either be defined based on k8s components namespace (namespace: dev) or labels (profile: fargate or environment: dev)
 
 3) Deploy app to Fargate
 
@@ -509,7 +511,7 @@ kubectl create ns dev
 kubectl apply -f nginx-fargate.yaml
 
 # -W is wait flag, track status until pod is ready
-kubectl get pod -n dev -W
+kubectl get pod -n dev -w
 
 # new fargate node for each pod
 kubectl get nodes
@@ -541,14 +543,19 @@ Create the cluster with below command
 
 ```bash
 eksctl create cluster \
-—name demo-cluster \
-—version 1.27 \
-—region eu-central-1 \
-—nodegroup-name demo-nodes \
-—node-type t2.micro \
-—nodes 2 \
-—nodes-min 1 \
-—nodes-max 3
+--name demo-cluster \
+--version 1.36 \
+--region us-east-1 \
+--nodegroup-name demo-nodes \
+--node-type t2.micro \
+--nodes 2 \
+--nodes-min 1 \
+--nodes-max 3
+```
+
+```bash
+# check cluster is created
+eksctl get cluster
 ```
 
 you can also create the cluster by using eksctl config yaml
@@ -580,6 +587,12 @@ Above will create the Node Group, EC2 instances, Cluster & all necessary compone
 kubectl will be automatically configured to connect to the newly created cluster (~/.kube/config)
 
 Once cluster is ready, check AWS console for the newly created resources (IAM Roles, VPC, ASG, EC2, ..etc)
+
+to delete the cluster
+
+```bash
+eksctl delete cluster <name>
+```
 
 ## 6 - Deploy to EKS Cluster from Jenkins Pipeline
 
@@ -670,11 +683,11 @@ In Jenkins, create multi branch pipeline
 
 Clone project repo & checkout the branch "deploy-to-k8s" https://gitlab.com/twn-devops-bootcamp/latest/11-eks/java-maven-app/-/blob/deploy-on-k8s/Jenkinsfile?ref_type=heads
 
-In pipeline, add new credentials of type "secret" for aws "access-key-id" & "secret-access-key". copy the values from (~/aws/credentials)
+In pipeline, add new credentials of type "secret text" for aws "access-key-id" & "secret-access-key". copy the values from (~/aws/credentials)
 
 ```text
 jenkins_aws_access_key_id
-jenkins_aws_secret_access_key
+jenkins-aws_secret_access_key
 ```
 
 5) adjust jenkins file to configure EKS cluster deployment
@@ -725,13 +738,13 @@ kubectl get pod
 
 ## 7 - BONUS: Deploy to LKE Cluster from Jenkins Pipeline
 
-Create K8s cluster (test) on linode and then
+Create K8s cluster "test" on linode and then
 
 - Install kubectl command line tool inside jenkins container
 - Install kubernetes cli jenkins plugin (execute kubectl with kubeconfig credentials)
 - configure jenkins file to deploy to LKE cluster
 
-Download the cluster kubeconfig file (test-kubeconfig.yaml)
+Download the cluster kubeconfig file "test-kubeconfig.yaml"
 
 Connect to the cluster with the following
 
@@ -741,7 +754,7 @@ export KUBECONFIG=/path/to/test-kubeconfig.yaml
 kubectl get node
 ```
 
-In jenkins, add a new pipeline credential (lke-credentials) of type "secret file" and upload the (test-kubeconfig.yaml)
+In jenkins, add a new pipeline credential "lke-credentials" of type "secret file" and upload the "test-kubeconfig.yaml"
 
 Install kubernetes cli jenkins plugin. restart jenkins to complete the installation, since jenkins is running as a container, you might need to ssh the server & restart the container
 
@@ -800,7 +813,7 @@ Then create credentials for jenkins user with user tokens
 
 ## 9 - Complete CI/CD Pipeline with EKS and DockerHub
 
-Create K8s cluster on AWS
+Create K8s cluster on AWS using eksctl
 
 For instruction on how to build the pipeline & create the docker image, refer to module 8 "https://github.com/mustafa-saleh/demo-module-8-build-automation-and-ci-cd-with-jenkins"
 
@@ -861,7 +874,7 @@ envsubst --version
 Create a secret in k8s to connect docker hub & pull the image
 
 ```bash
-kubectl create secret docker-registry my-registry-key \
+kubectl create secret docker-registry aws-registry-key \
 --docker-server=docker.io \
 --docker-username= \
 --docker-password=
